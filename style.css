@@ -269,3 +269,9 @@ body { display: flex !important; flex-direction: column; }
 .loader-bar.indet i { width: 30% !important; animation: lsSlide 1.2s ease-in-out infinite; }
 @keyframes lsSlide { 0% { left: -30%; } 100% { left: 100%; } }
 @media (prefers-reduced-motion: reduce) { .loader-sun, .loader-bar.indet i { animation: none; } }
+
+/* menyn på höger sida */
+.panel { left: auto !important; right: 0; transform: translateX(102%); border-right: 0 !important; border-left: 1px solid var(--line) !important; }
+.panel.open { transform: none; }
+.top .weather { margin-left: auto; }
+.install[hidden], .sheet[hidden] { display: none !important; }

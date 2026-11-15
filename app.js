@@ -661,7 +661,10 @@ out tags geom;`;
   }
 
   // ---------- installera som app ----------
+  const SHOW_INSTALL_BANNER = false; // avstängd under utvecklingen
   function initInstall() {
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+    if (!SHOW_INSTALL_BANNER) return;
     let deferred;
     const box = $('install');
     const dismissed = store.get('suntime-install-dismissed');
@@ -680,9 +683,6 @@ out tags geom;`;
       box.querySelector('span').textContent = 'Installera: tryck på Dela ⬆︎ och välj ”Lägg till på hemskärmen”.';
       $('installBtn').hidden = true;
       box.hidden = false;
-    }
-    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
     }
   }
 

@@ -117,3 +117,6 @@ input[type=search], select { font: inherit; padding: 7px 10px; border-radius: 10
 #map.sv-on.sv-twilight .leaflet-tile-pane { filter: sepia(.3) hue-rotate(-20deg) saturate(1.1) brightness(.8); }
 #map.sv-on.sv-night .leaflet-tile-pane { filter: brightness(.55) saturate(.5) hue-rotate(190deg); }
 #map.sv-on.sv-night .sv-alt { fill: #dfe6ff; stroke: rgba(20,30,60,.8); }
+.star { background: none; border: 0; font-size: 22px; line-height: 1; color: var(--muted); cursor: pointer; padding: 4px; }
+.star.on { color: var(--sun); }
+.big-star { font-size: 24px; vertical-align: -2px; }

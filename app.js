@@ -28,6 +28,12 @@
   const KINDS = { restaurant: 'Restaurang', bar: 'Bar', pub: 'Pub', cafe: 'Café', biergarten: 'Ölträdgård' };
 
   const $ = (id) => document.getElementById(id);
+  const favs = new Set((() => { try { return JSON.parse(localStorage.getItem('suntime-favs')) || []; } catch (e) { return []; } })());
+  function toggleFav(id) {
+    favs.has(id) ? favs.delete(id) : favs.add(id);
+    try { localStorage.setItem('suntime-favs', JSON.stringify([...favs])); } catch (e) { /* */ }
+    render();
+  }
   const state = {
     venues: [], weather: null, live: true, dayOffset: 0, minutes: 0,
     me: null, markers: new Map(), selected: null, daySun: null, daySunKey: '',
@@ -282,6 +288,7 @@ out tags geom;`;
 
     const q = $('search').value.trim().toLowerCase();
     const onlySun = $('onlySun').checked;
+    const onlyFav = $('onlyFav').checked;
     const sort = $('sort').value;
     const rows = [];
     let sunCount = 0;
@@ -293,6 +300,7 @@ out tags geom;`;
       if (m && m._status !== e.status) { m.setIcon(pinIcon(e.status)); m._status = e.status; }
       if (q && !(v.name.toLowerCase().includes(q) || (v.addr || '').toLowerCase().includes(q))) continue;
       if (onlySun && !e.lit) continue;
+      if (onlyFav && !favs.has(v.id)) continue;
       rows.push(v);
     }
     const rank = { sun: 0, cloudy: 1, shade: 2, night: 3 };
@@ -307,10 +315,13 @@ out tags geom;`;
         <div class="dot ${e.status}">${ICON[e.status]}</div>
         <div class="main"><div class="name">${esc(v.name)}</div>
           <div class="sub">${esc(e.line)}${dist}</div></div>
+        <button class="star${favs.has(v.id) ? ' on' : ''}" data-fav="${esc(v.id)}" type="button" aria-label="Favorit">${favs.has(v.id) ? '★' : '☆'}</button>
         <div class="left"><b>${e.left ? dur(e.left) : '–'}</b>sol kvar</div>
       </li>`;
     }).join('');
-    $('list').innerHTML = html || '<li class="status">Inga serveringar matchar.</li>';
+    $('list').innerHTML = html || (onlyFav && !favs.size
+      ? '<li class="status">Du har inga favoriter än. Tryck på ☆ vid en servering för att spara den.</li>'
+      : '<li class="status">Inga serveringar matchar.</li>');
     const sunAlt = Shadow.sunPos(now, CITY.lat, CITY.lon).alt;
     setStatus(sunAlt <= 0
       ? `Solen är nere kl ${hhmm(now)}. Dra i tidsreglaget eller välj imorgon för att se när det blir sol.`
@@ -331,7 +342,7 @@ out tags geom;`;
     const s = $('sheet');
     s.innerHTML = `
       <button class="close" id="sheetClose" aria-label="Stäng">✕</button>
-      <h2>${esc(v.name)}</h2>
+      <h2>${esc(v.name)} <button class="star big-star${favs.has(v.id) ? ' on' : ''}" id="sheetFav" type="button" aria-label="Favorit">${favs.has(v.id) ? '★' : '☆'}</button></h2>
       <div class="kind">${esc(KINDS[v.kind] || '')}${v.cuisine ? ' · ' + esc(v.cuisine.replace(/;/g, ', ')) : ''}${v.addr ? ' · ' + esc(v.addr) : ''}</div>
       <div class="big"><div class="dot ${e.status}">${ICON[e.status]}</div>
         <div><b>${big}</b><br><span>${esc(e.line)}</span></div></div>
@@ -353,6 +364,7 @@ out tags geom;`;
       ${v.indoor ? 'Platsen låg inne i en byggnad på kartan, så vi antar att serveringen står vid närmaste fasad.' : ''}
       ${web ? '' : 'Ingen hemsida finns registrerad.'}</div>`;
     s.hidden = false;
+    $('sheetFav').onclick = () => toggleFav(v.id);
     $('sheetClose').onclick = () => { s.hidden = true; state.selected = null; };
     if (!refresh) map.panTo([v.lat, v.lon]);
   }
@@ -375,6 +387,7 @@ out tags geom;`;
     $('nowBtn').addEventListener('click', () => { state.live = true; state.dayOffset = 0; render(); });
     $('search').addEventListener('input', render);
     $('onlySun').addEventListener('change', render);
+    $('onlyFav').addEventListener('change', render);
     $('sort').addEventListener('change', () => {
       if ($('sort').value === 'near' && !state.me && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((p) => {
@@ -386,6 +399,8 @@ out tags geom;`;
       render();
     });
     $('list').addEventListener('click', (ev) => {
+      const st = ev.target.closest('[data-fav]');
+      if (st) { ev.stopPropagation(); toggleFav(st.dataset.fav); return; }
       const li = ev.target.closest('.item'); if (!li) return;
       const v = state.venues.find((x) => x.id === li.dataset.id); if (v) openSheet(v);
     });

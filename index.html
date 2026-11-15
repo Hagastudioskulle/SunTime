@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Suntime – sol på uteserveringar i Göteborg</title>
+  <meta name="description" content="Se vilka uteserveringar i Göteborg som har sol just nu.">
+  <meta name="theme-color" content="#f5a623">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Suntime">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="lib/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo">☀︎</span> Suntime <small>Göteborg</small></div>
+    <div id="weather" class="weather">–</div>
+  </header>
+
+  <div id="map"></div>
+
+  <section class="panel" id="panel">
+    <div class="handle" id="handle"></div>
+    <div class="timebar">
+      <select id="day" aria-label="Dag">
+        <option value="0">Idag</option>
+        <option value="1">Imorgon</option>
+      </select>
+      <input type="range" id="time" min="0" max="1435" step="5" aria-label="Tid">
+      <span id="timeLabel" class="timelabel">--:--</span>
+      <button id="nowBtn" class="chip" type="button">Nu</button>
+    </div>
+    <div class="controls">
+      <input id="search" type="search" placeholder="Sök servering…" autocomplete="off">
+      <select id="sort" aria-label="Sortering">
+        <option value="sun">Mest sol kvar</option>
+        <option value="near">Närmast mig</option>
+        <option value="name">Namn</option>
+      </select>
+      <label class="chip toggle"><input type="checkbox" id="onlySun"> Bara sol</label>
+    </div>
+    <div id="status" class="status">Startar…</div>
+    <ul id="list" class="list"></ul>
+    <footer class="foot">
+      Data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-bidragsgivare ·
+      Väder: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> ·
+      Skuggor är uppskattade från byggnadshöjder. <button id="refresh" class="link" type="button">Hämta om data</button>
+    </footer>
+  </section>
+
+  <div id="sheet" class="sheet" hidden></div>
+  <div id="install" class="install" hidden>
+    <span>Lägg till Suntime på hemskärmen</span>
+    <button id="installBtn" class="btn" type="button">Installera</button>
+    <button id="installClose" class="link" type="button" aria-label="Stäng">✕</button>
+  </div>
+
+  <script src="lib/leaflet.js"></script>
+  <script src="lib/suncalc.js"></script>
+  <script src="shadow.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

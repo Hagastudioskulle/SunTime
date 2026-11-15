@@ -1,5 +1,5 @@
 // Suntime service worker: appen fungerar offline, kartbitar cachas när de visats.
-const SHELL = 'suntime-shell-v7';
+const SHELL = 'suntime-shell-v9';
 const TILES = 'suntime-tiles-v1';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'shadow.js', 'sunview.js', 'hours.js', 'manifest.webmanifest',
   'lib/leaflet.js', 'lib/leaflet.css', 'lib/suncalc.js', 'icons/icon-192.png', 'icons/icon-512.png'];

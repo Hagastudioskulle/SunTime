@@ -122,8 +122,8 @@ input[type=search], select { font: inherit; padding: 7px 10px; border-radius: 10
 .big-star { font-size: 24px; vertical-align: -2px; }
 
 /* ---------- filter, bästa tid, timvy, rapport ---------- */
-.open { color: #2e8b57; font-weight: 600; }
-.closed { color: #b0413e; font-weight: 600; }
+.is-open { color: #2e8b57; font-weight: 600; }
+.is-closed { color: #b0413e; font-weight: 600; }
 .best { display: flex; gap: 10px; align-items: center; text-align: left; margin: 0 12px 8px; padding: 10px 12px; border-radius: 12px;
   border: 1px solid #f3c26b; background: linear-gradient(135deg, var(--sun-soft), var(--card)); color: var(--text); font: inherit; cursor: pointer; }
 .best[hidden] { display: none; }
@@ -216,3 +216,56 @@ input[type=search], select, .chip { border-radius: var(--radius); background: va
 @media (prefers-color-scheme: dark) {
   #map .leaflet-tile-pane { filter: grayscale(1) invert(.9) contrast(.85) brightness(.9); }
 }
+
+/* =========================================================
+   Layout: kartan i helskärm, meny som dras ut från sidan
+   ========================================================= */
+body { display: flex !important; flex-direction: column; }
+.top { justify-content: flex-start; gap: 10px; }
+.top .weather { margin-left: auto; }
+#map { flex: 1 1 auto !important; min-height: 0; }
+.menu-btn { width: 38px; height: 38px; flex: 0 0 38px; display: inline-flex; flex-direction: column; justify-content: center; gap: 4px;
+  align-items: center; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); cursor: pointer; padding: 0; }
+.menu-btn span { display: block; width: 16px; height: 1.5px; background: var(--text); border-radius: 2px; }
+
+.timebar-bottom { padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); z-index: 2; }
+
+.panel { position: fixed !important; top: 0; left: 0; bottom: 0; width: min(88vw, 400px); z-index: 1200;
+  border: 0 !important; border-right: 1px solid var(--line) !important; background: var(--bg);
+  transform: translateX(-102%); transition: transform .28s cubic-bezier(.2,.8,.2,1);
+  padding-top: env(safe-area-inset-top); box-shadow: none; visibility: hidden; }
+.panel.open { transform: none; visibility: visible; box-shadow: 0 0 40px rgba(0,0,0,.12); }
+@media (prefers-reduced-motion: reduce) { .panel { transition: none; } }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 4px; }
+.drawer-head b { font-weight: 600; font-size: 17px; }
+.close-x { background: none; border: 0; font-size: 20px; color: var(--muted); cursor: pointer; padding: 4px 8px; }
+.backdrop { position: fixed; inset: 0; z-index: 1150; background: rgba(0,0,0,.18); }
+.backdrop[hidden] { display: none; }
+.sheet { z-index: 1000; }
+
+@media (min-width: 820px) {
+  body { display: flex !important; }
+  .top, #map, .panel { grid-column: auto; grid-row: auto; }
+  .sheet { left: auto; right: 16px; bottom: 72px; width: 400px; border-radius: 16px; }
+}
+
+.weather { white-space: nowrap; font-size: 12px; }
+.install { top: calc(112px + env(safe-area-inset-top)); bottom: auto; }
+
+/* laddare första gången en stad öppnas */
+.loader { position: absolute; inset: 0; z-index: 900; display: grid; place-items: center; background: rgba(245,244,241,.55);
+  backdrop-filter: blur(2px); transition: opacity .35s; }
+@media (prefers-color-scheme: dark) { .loader { background: rgba(20,20,20,.55); } }
+.loader.done { opacity: 0; pointer-events: none; }
+.loader-card { width: min(300px, 82vw); background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 20px 18px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.loader-card b { font-weight: 600; }
+.loader-card span { font-size: 13px; color: var(--muted); }
+.loader-sun { width: 40px; height: 40px; border-radius: 50%; background: var(--sun); margin-bottom: 6px;
+  box-shadow: 0 0 0 0 rgba(232,176,42,.5); animation: lsPulse 1.6s ease-out infinite; }
+@keyframes lsPulse { 0% { box-shadow: 0 0 0 0 rgba(232,176,42,.55); } 100% { box-shadow: 0 0 0 22px rgba(232,176,42,0); } }
+.loader-bar { width: 100%; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin-top: 8px; position: relative; }
+.loader-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--sun); border-radius: 2px; transition: width .3s; }
+.loader-bar.indet i { width: 30% !important; animation: lsSlide 1.2s ease-in-out infinite; }
+@keyframes lsSlide { 0% { left: -30%; } 100% { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .loader-sun, .loader-bar.indet i { animation: none; } }

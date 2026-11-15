@@ -58,6 +58,19 @@
     return h ? (r ? `${h} h ${r} min` : `${h} h`) : `${r} min`;
   };
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function loader(text, pct) {
+    let el = $('loader');
+    if (text == null) { if (el) { el.classList.add('done'); setTimeout(() => el.remove(), 400); } return; }
+    if (!el) {
+      el = document.createElement('div'); el.id = 'loader'; el.className = 'loader';
+      el.innerHTML = '<div class="loader-card"><div class="loader-sun"></div><b></b><span></span><div class="loader-bar"><i></i></div></div>';
+      $('map').appendChild(el);
+    }
+    el.querySelector('b').textContent = text;
+    el.querySelector('span').textContent = pct == null ? 'Första gången kan det ta upp till en halv minut.' : `${pct} %`;
+    el.querySelector('.loader-bar i').style.width = (pct == null ? 12 : Math.max(12, pct)) + '%';
+    el.querySelector('.loader-bar').classList.toggle('indet', pct == null);
+  }
   const setStatus = (t, err) => { const el = $('status'); el.textContent = t; el.classList.toggle('error', !!err); };
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
@@ -131,6 +144,7 @@ out tags geom;`;
     }
 
     setStatus('Hämtar uteserveringar och hus från OpenStreetMap… (kan ta en halv minut första gången)');
+    loader(`Läser in barer och restauranger i ${CITY.name}…`);
     const json = await overpass(buildQuery());
     const venues = [], buildings = [], seen = new Set();
     for (const el of json.elements || []) {
@@ -185,6 +199,7 @@ out tags geom;`;
       v.profile = r.profile; v.slat = r.lat; v.slon = r.lon; v.indoor = r.indoor;
       if (i % 15 === 0) {
         setStatus(`Räknar skuggor… ${Math.round((i / venues.length) * 100)} %`);
+        loader(`Räknar ut skuggor för ${venues.length} serveringar…`, Math.round((i / venues.length) * 100));
         await new Promise((r) => setTimeout(r, 0));
       }
     }
@@ -388,7 +403,7 @@ out tags geom;`;
 
   function openTag(v, now) {
     const o = Hours.isOpen(v.hours, now);
-    return o === true ? ' · <span class="open">Öppet</span>' : o === false ? ' · <span class="closed">Stängt</span>' : '';
+    return o === true ? ' · <span class="is-open">Öppet</span>' : o === false ? ' · <span class="is-closed">Stängt</span>' : '';
   }
 
   // Sol-minuter i ett intervall där vädret också är okej (molntäcke under gränsen)
@@ -424,7 +439,7 @@ out tags geom;`;
     box.innerHTML = `<span class="best-icon">${cloudy ? '⛅' : '☀︎'}</span>
       <span><small>${favs.size ? 'Bästa sol bland dina favoriter' : 'Bästa sol i stan'}${state.dayOffset ? ' den dagen' : ' idag'}</small>
       <b>${esc(best.v.name)}</b> ${hhmm(new Date(best.a))}–${hhmm(new Date(best.b))} (${dur(best.len)}${cloudy ? ', men molnigt' : ''})</span>`;
-    box.onclick = () => openSheet(best.v);
+    box.onclick = () => { setMenu(false); openSheet(best.v); };
   }
 
   // ---------- notiser ----------
@@ -503,6 +518,7 @@ out tags geom;`;
     };
   }
   function startAddMode() {
+    setMenu(false);
     state.addMode = true;
     $('sheet').hidden = true;
     map.getContainer().classList.add('adding');
@@ -598,8 +614,20 @@ out tags geom;`;
     }
   }
 
+  // ---------- sidomeny ----------
+  function setMenu(open) {
+    $('panel').classList.toggle('open', open);
+    $('backdrop').hidden = !open;
+    $('menuBtn').setAttribute('aria-expanded', String(open));
+    if (open) $('sheet').hidden = true, state.selected = null;
+  }
+
   // ---------- händelser ----------
   function bind() {
+    $('menuBtn').addEventListener('click', () => setMenu(!$('panel').classList.contains('open')));
+    $('menuClose').addEventListener('click', () => setMenu(false));
+    $('backdrop').addEventListener('click', () => setMenu(false));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
     $('time').addEventListener('input', () => { state.live = false; state.minutes = +$('time').value; render(); });
     $('day').addEventListener('change', () => { state.live = false; state.dayOffset = +$('day').value; state.minutes = +$('time').value; render(); });
     $('nowBtn').addEventListener('click', () => { state.live = true; state.dayOffset = 0; render(); });
@@ -625,7 +653,7 @@ out tags geom;`;
       const st = ev.target.closest('[data-fav]');
       if (st) { ev.stopPropagation(); toggleFav(st.dataset.fav); return; }
       const li = ev.target.closest('.item'); if (!li) return;
-      const v = state.venues.find((x) => x.id === li.dataset.id); if (v) openSheet(v);
+      const v = state.venues.find((x) => x.id === li.dataset.id); if (v) { setMenu(false); openSheet(v); }
     });
     $('refresh').addEventListener('click', () => start(true));
     setInterval(() => { if (state.live) render(); }, 60000);
@@ -664,8 +692,10 @@ out tags geom;`;
       state.daySunKey = '';
       addMarkers();
       render();
+      loader(null);
     } catch (e) {
       console.error(e);
+      loader(null);
       setStatus('Kunde inte hämta serveringar (' + e.message + '). Kontrollera nätet och tryck ”Hämta om data”.', true);
     }
   }

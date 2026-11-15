@@ -15,19 +15,17 @@
   <meta name="apple-mobile-web-app-title" content="Suntime">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="lib/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <header class="top">
+    <button id="menuBtn" class="menu-btn" type="button" aria-label="Öppna menyn" aria-expanded="false"><span></span><span></span><span></span></button>
     <div class="brand"><span class="logo">☀︎</span> Suntime <select id="city" class="city" aria-label="Stad"></select></div>
     <div id="weather" class="weather">–</div>
   </header>
 
   <div id="map"></div>
-
-  <section class="panel" id="panel">
-    <div class="handle" id="handle"></div>
-    <div class="timebar">
+    <div class="timebar timebar-bottom">
       <select id="day" aria-label="Dag">
         <option value="0">Idag</option>
         <option value="1">Imorgon</option>
@@ -36,6 +34,10 @@
       <span id="timeLabel" class="timelabel">--:--</span>
       <button id="nowBtn" class="chip" type="button">Nu</button>
     </div>
+  <div id="backdrop" class="backdrop" hidden></div>
+
+  <section class="panel" id="panel">
+    <div class="drawer-head"><b>Serveringar</b><button id="menuClose" class="close-x" type="button" aria-label="Stäng menyn">✕</button></div>
     <div class="controls">
       <input id="search" type="search" placeholder="Sök servering…" autocomplete="off">
       <select id="sort" aria-label="Sortering">
@@ -76,9 +78,9 @@
 
   <script src="lib/leaflet.js"></script>
   <script src="lib/suncalc.js"></script>
-  <script src="shadow.js?v=7"></script>
-  <script src="hours.js?v=7"></script>
-  <script src="sunview.js?v=7"></script>
-  <script src="app.js?v=7"></script>
+  <script src="shadow.js?v=9"></script>
+  <script src="hours.js?v=9"></script>
+  <script src="sunview.js?v=9"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

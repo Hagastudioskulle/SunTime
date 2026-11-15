@@ -147,3 +147,72 @@ input[type=search], select { font: inherit; padding: 7px 10px; border-radius: 10
 .report-opts { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; font-size: 14px; }
 .report textarea { width: 100%; font: inherit; padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
 #map.adding { cursor: crosshair; outline: 3px solid var(--sun); outline-offset: -3px; }
+
+/* =========================================================
+   Tema: Skandinavisk minimal
+   Gråvitt, mycket luft, tunna linjer, en enda gul accent.
+   ========================================================= */
+:root {
+  --sun: #e8b02a; --sun-ink: #2a2000; --sun-soft: #faf3e0;
+  --bg: #f5f4f1; --card: #ffffff; --text: #1b1b1a; --muted: #85837d; --line: #e3e1dc;
+  --none: #c9c7c1; --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #141414; --card: #1c1c1b; --text: #efeeea; --muted: #8f8d87; --line: #2b2a28;
+    --sun-soft: #2c2512; --none: #55534f; }
+}
+html, body { font: 15px/1.45 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: .005em; }
+.top { border-bottom: 1px solid var(--line); background: var(--bg); }
+.brand { font-weight: 600; letter-spacing: .02em; }
+.logo { color: var(--sun); }
+.city { border: 0; background: transparent; font-weight: 500; color: var(--muted); padding-left: 2px; }
+.panel { background: var(--bg); }
+input[type=search], select, .chip { border-radius: var(--radius); background: var(--card); border: 1px solid var(--line); }
+.chip { border-radius: 999px; }
+.item { border-radius: var(--radius); border: 1px solid var(--line); box-shadow: none; padding: 12px; }
+.item .name { font-weight: 500; }
+.item .left b { font-weight: 600; }
+.dot { width: 30px; height: 30px; flex-basis: 30px; font-size: 15px; background: transparent; }
+.dot.now { background: var(--sun); color: var(--sun-ink); }
+.dot.later { background: var(--card); color: var(--sun); box-shadow: inset 0 0 0 2px var(--sun); }
+.dot.none { background: var(--line); color: var(--muted); }
+.dot.cloudy { opacity: .7; }
+.big { background: var(--sun-soft); border-radius: var(--radius); }
+.fact, .hr, .report { border-radius: var(--radius); }
+.btn { border-radius: var(--radius); font-weight: 600; background: var(--sun); color: var(--sun-ink); }
+.btn.secondary { background: transparent; }
+.best { border: 1px solid var(--line); background: var(--card); border-left: 3px solid var(--sun); border-radius: var(--radius); }
+.sheet { border-radius: 16px 16px 0 0; box-shadow: 0 -1px 0 var(--line), 0 -12px 40px rgba(0,0,0,.08); }
+.install { box-shadow: none; border-radius: var(--radius); }
+.timeline { height: 8px; border-radius: 4px; }
+.timeline .now { width: 2px; }
+
+/* kartnålar: tre lägen */
+.pin { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.12); }
+.pin.now { background: var(--sun); width: 20px; height: 20px; }
+.pin.later { background: #fff; box-shadow: inset 0 0 0 4px var(--sun), 0 0 0 1px rgba(0,0,0,.12); }
+.pin.none { background: var(--none); }
+.pin.cloudy { opacity: .65; }
+
+/* läges-väljare + teckenförklaring på kartan */
+.mode-ctl { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px; }
+.seg { display: flex; background: var(--bg); border-radius: 8px; padding: 2px; }
+.seg button { flex: 1; font: 500 13px system-ui, sans-serif; border: 0; background: transparent; color: var(--muted);
+  padding: 6px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.seg button.on { background: var(--card); color: var(--text); box-shadow: 0 0 0 1px var(--line); }
+.legend { display: flex; gap: 10px; margin-top: 6px; font-size: 11px; color: var(--muted); padding: 0 2px; }
+.legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.legend .pin { width: 11px; height: 11px; border-width: 1px; display: inline-block; }
+.legend .pin.later { box-shadow: inset 0 0 0 2.5px var(--sun); }
+.sv-toggle { border-radius: var(--radius); box-shadow: none; border: 1px solid var(--line); font-weight: 500; }
+.sv-toggle.on { background: var(--sun); color: var(--sun-ink); border-color: var(--sun); }
+.leaflet-bar { border: 1px solid var(--line) !important; box-shadow: none !important; }
+
+/* lugn, avfärgad karta så att solen syns */
+#map .leaflet-tile-pane { filter: grayscale(1) contrast(.92) brightness(1.04); }
+#map.sv-on.sv-golden .leaflet-tile-pane { filter: grayscale(.6) sepia(.35) contrast(.92) brightness(1.03); }
+#map.sv-on.sv-twilight .leaflet-tile-pane { filter: grayscale(.7) sepia(.3) hue-rotate(-15deg) brightness(.82); }
+#map.sv-on.sv-night .leaflet-tile-pane { filter: grayscale(1) brightness(.5) contrast(1.1); }
+@media (prefers-color-scheme: dark) {
+  #map .leaflet-tile-pane { filter: grayscale(1) invert(.9) contrast(.85) brightness(.9); }
+}

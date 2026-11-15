@@ -288,9 +288,29 @@ out tags geom;`;
       onToggle: (on) => { store.set('suntime-sunview', on); render(); },
     });
   }
-  function pinIcon(status) {
-    return L.divIcon({ className: '', html: `<div class="pin ${status}"></div>`, iconSize: [22, 22], iconAnchor: [11, 11] });
+  function pinIcon(cat, cloudy) {
+    return L.divIcon({ className: '', html: `<div class="pin ${cat}${cloudy ? ' cloudy' : ''}"></div>`, iconSize: [20, 20], iconAnchor: [10, 10] });
   }
+  // Lägen för vad som visas: alla / sol någon gång idag / sol just nu
+  const MODES = [['all', 'Alla'], ['today', 'Sol idag'], ['now', 'Sol nu']];
+  function initModeControl() {
+    const Ctl = L.Control.extend({
+      options: { position: 'bottomleft' },
+      onAdd() {
+        const d = L.DomUtil.create('div', 'mode-ctl');
+        L.DomEvent.disableClickPropagation(d);
+        d.innerHTML = `<div class="seg">${MODES.map(([k, t]) => `<button type="button" data-mode="${k}">${t}</button>`).join('')}</div>
+          <div class="legend"><span><i class="pin now"></i>Sol nu</span><span><i class="pin later"></i>Sol senare</span><span><i class="pin none"></i>Ingen mer sol</span></div>`;
+        d.addEventListener('click', (ev) => {
+          const b = ev.target.closest('[data-mode]'); if (!b) return;
+          state.mode = b.dataset.mode; store.set('suntime-mode', state.mode); render();
+        });
+        return d;
+      },
+    });
+    new Ctl().addTo(map);
+  }
+  const catOf = (e) => (e.lit ? 'now' : e.next ? 'later' : 'none');
 
   // ---------- rendering ----------
   const ICON = { sun: '☀︎', cloudy: '☁︎', shade: '◐', night: '☾' };
@@ -307,7 +327,8 @@ out tags geom;`;
     SunView.update(now, w0 ? w0.cloud : 0);
 
     const q = $('search').value.trim().toLowerCase();
-    const onlySun = $('onlySun').checked;
+    const mode = state.mode;
+    document.querySelectorAll('.mode-ctl [data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === mode));
     const onlyFav = $('onlyFav').checked;
     const kind = $('kind').value;
     const onlyOpen = $('onlyOpen').checked;
@@ -319,14 +340,23 @@ out tags geom;`;
       v._e = e;
       if (e.status === 'sun') sunCount++;
       const m = state.markers.get(v.id);
-      if (m && m._status !== e.status) { m.setIcon(pinIcon(e.status)); m._status = e.status; }
+      const cat = catOf(e), key = cat + (e.status === 'cloudy' ? 'c' : '');
+      v._cat = cat;
+      if (m && m._status !== key) { m.setIcon(pinIcon(cat, e.status === 'cloudy')); m._status = key; }
+      if (m) m._show = false;
       if (q && !(v.name.toLowerCase().includes(q) || (v.addr || '').toLowerCase().includes(q))) continue;
-      if (onlySun && !e.lit) continue;
+      if (mode === 'now' && cat !== 'now') continue;
+      if (mode === 'today' && cat === 'none') continue;
       if (onlyFav && !favs.has(v.id)) continue;
       if (hidden.has(v.id)) continue;
       if (kind && !(kind === 'bar' ? (v.kind === 'bar' || v.kind === 'pub' || v.kind === 'biergarten') : v.kind === kind)) continue;
       if (onlyOpen && Hours.isOpen(v.hours, now) === false) continue;
       rows.push(v);
+      if (m) m._show = true;
+    }
+    for (const m of state.markers.values()) {
+      const on = map.hasLayer(m);
+      if (m._show && !on) m.addTo(map); else if (!m._show && on) m.remove();
     }
     const rank = { sun: 0, cloudy: 1, shade: 2, night: 3 };
     if (sort === 'name') rows.sort((a, b) => a.name.localeCompare(b.name, 'sv'));
@@ -337,7 +367,7 @@ out tags geom;`;
       const e = v._e;
       const dist = state.me ? ` · ${distM(state.me, v) < 1000 ? Math.round(distM(state.me, v) / 10) * 10 + ' m' : (distM(state.me, v) / 1000).toFixed(1) + ' km'}` : '';
       return `<li class="item" data-id="${esc(v.id)}">
-        <div class="dot ${e.status}">${ICON[e.status]}</div>
+        <div class="dot ${v._cat}${e.status === 'cloudy' ? ' cloudy' : ''}">${ICON[e.status]}</div>
         <div class="main"><div class="name">${esc(v.name)}</div>
           <div class="sub">${esc(e.line)}${dist}${openTag(v, now)}</div></div>
         <button class="star${favs.has(v.id) ? ' on' : ''}" data-fav="${esc(v.id)}" type="button" aria-label="Favorit">${favs.has(v.id) ? '★' : '☆'}</button>
@@ -523,7 +553,7 @@ out tags geom;`;
       <button class="close" id="sheetClose" aria-label="Stäng">✕</button>
       <h2>${esc(v.name)} <button class="star big-star${favs.has(v.id) ? ' on' : ''}" id="sheetFav" type="button" aria-label="Favorit">${favs.has(v.id) ? '★' : '☆'}</button></h2>
       <div class="kind">${esc(KINDS[v.kind] || '')}${v.cuisine ? ' · ' + esc(v.cuisine.replace(/;/g, ', ')) : ''}${v.addr ? ' · ' + esc(v.addr) : ''}</div>
-      <div class="big"><div class="dot ${e.status}">${ICON[e.status]}</div>
+      <div class="big"><div class="dot ${catOf(e)}${e.status === 'cloudy' ? ' cloudy' : ''}">${ICON[e.status]}</div>
         <div><b>${big}</b><br><span>${esc(e.line)}</span></div></div>
       <div class="facts">
         <div class="fact"><span>Sol kvar ${state.dayOffset ? 'den dagen' : 'idag'}</span><b>${e.left ? dur(e.left) : '–'}</b></div>
@@ -561,8 +591,8 @@ out tags geom;`;
     for (const m of state.markers.values()) m.remove();
     state.markers.clear();
     for (const v of state.venues) {
-      const m = L.marker([v.lat, v.lon], { icon: pinIcon('shade'), title: v.name }).addTo(map);
-      m._status = 'shade';
+      const m = L.marker([v.lat, v.lon], { icon: pinIcon('none'), title: v.name }).addTo(map);
+      m._status = 'none';
       m.on('click', () => openSheet(v));
       state.markers.set(v.id, m);
     }
@@ -574,7 +604,7 @@ out tags geom;`;
     $('day').addEventListener('change', () => { state.live = false; state.dayOffset = +$('day').value; state.minutes = +$('time').value; render(); });
     $('nowBtn').addEventListener('click', () => { state.live = true; state.dayOffset = 0; render(); });
     $('search').addEventListener('input', render);
-    $('onlySun').addEventListener('change', render);
+
     $('onlyFav').addEventListener('change', render);
     $('kind').addEventListener('change', render);
     $('onlyOpen').addEventListener('change', render);
@@ -648,7 +678,9 @@ out tags geom;`;
     location.search = '?stad=' + citySel.value;
   });
   document.title = 'Suntime – sol på uteserveringar i ' + CITY.name;
+  state.mode = ['all', 'today', 'now'].includes(store.get('suntime-mode')) ? store.get('suntime-mode') : 'all';
   initMap();
+  initModeControl();
   bind();
   initInstall();
   const now = new Date();

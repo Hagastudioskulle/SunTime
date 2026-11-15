@@ -15,8 +15,11 @@
   })();
   const CITY = CITIES[cityId];
   const BBOX = CITY.bbox; // syd, väst, nord, öst
-  const DATA_KEY = 'suntime-data-v2-' + cityId;
+  const DATA_KEY = 'suntime-data-v3-' + cityId;
   const DATA_TTL = 7 * 864e5;
+  try { // städa bort gamla cachade versioner
+    Object.keys(localStorage).filter((k) => k.startsWith('suntime-data-') && !k.startsWith('suntime-data-v3-')).forEach((k) => localStorage.removeItem(k));
+  } catch (e) { /* */ }
   const WX_KEY = 'suntime-wx-v1-' + cityId;
   const WX_TTL = 30 * 60e3;
   const CLOUDY = 75; // % molntäcke där vi räknar solen som borta
@@ -29,6 +32,12 @@
 
   const $ = (id) => document.getElementById(id);
   const favs = new Set((() => { try { return JSON.parse(localStorage.getItem('suntime-favs')) || []; } catch (e) { return []; } })());
+  const loadSet = (k) => new Set((() => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch (e) { return []; } })());
+  const saveSet = (k, set) => { try { localStorage.setItem(k, JSON.stringify([...set])); } catch (e) { /* */ } };
+  const notify = loadSet('suntime-notify');
+  const hidden = loadSet('suntime-hidden');
+  const notified = loadSet('suntime-notified');
+  const NOTIFY_BEFORE = 30 * 60000;
   function toggleFav(id) {
     favs.has(id) ? favs.delete(id) : favs.add(id);
     try { localStorage.setItem('suntime-favs', JSON.stringify([...favs])); } catch (e) { /* */ }
@@ -107,7 +116,10 @@
   nwr["amenity"="biergarten"](${b});
 )->.v;
 .v out center tags;
-way["building"](around.v:120);
+(
+  way["building"](around.v:120);
+  relation["building"](around.v:120);
+);
 out tags geom;`;
   }
 
@@ -140,6 +152,14 @@ out tags geom;`;
       }
       if (t.building && Array.isArray(el.geometry) && el.geometry.length > 2) {
         buildings.push({ h: Shadow.buildingHeight(t), pts: el.geometry.map((g) => [g.lat, g.lon]) });
+      } else if (t.building && el.type === 'relation' && Array.isArray(el.members)) {
+        // flerdelade byggnader (t.ex. kvarter med innergård): använd de yttre väggarna
+        const h = Shadow.buildingHeight(t);
+        for (const m of el.members) {
+          if (m.type === 'way' && m.role !== 'inner' && Array.isArray(m.geometry) && m.geometry.length > 2) {
+            buildings.push({ h, pts: m.geometry.map((g) => [g.lat, g.lon]) });
+          }
+        }
       }
     }
     if (!venues.length) throw new Error('Inga serveringar hittades');
@@ -289,6 +309,8 @@ out tags geom;`;
     const q = $('search').value.trim().toLowerCase();
     const onlySun = $('onlySun').checked;
     const onlyFav = $('onlyFav').checked;
+    const kind = $('kind').value;
+    const onlyOpen = $('onlyOpen').checked;
     const sort = $('sort').value;
     const rows = [];
     let sunCount = 0;
@@ -301,6 +323,9 @@ out tags geom;`;
       if (q && !(v.name.toLowerCase().includes(q) || (v.addr || '').toLowerCase().includes(q))) continue;
       if (onlySun && !e.lit) continue;
       if (onlyFav && !favs.has(v.id)) continue;
+      if (hidden.has(v.id)) continue;
+      if (kind && !(kind === 'bar' ? (v.kind === 'bar' || v.kind === 'pub' || v.kind === 'biergarten') : v.kind === kind)) continue;
+      if (onlyOpen && Hours.isOpen(v.hours, now) === false) continue;
       rows.push(v);
     }
     const rank = { sun: 0, cloudy: 1, shade: 2, night: 3 };
@@ -314,7 +339,7 @@ out tags geom;`;
       return `<li class="item" data-id="${esc(v.id)}">
         <div class="dot ${e.status}">${ICON[e.status]}</div>
         <div class="main"><div class="name">${esc(v.name)}</div>
-          <div class="sub">${esc(e.line)}${dist}</div></div>
+          <div class="sub">${esc(e.line)}${dist}${openTag(v, now)}</div></div>
         <button class="star${favs.has(v.id) ? ' on' : ''}" data-fav="${esc(v.id)}" type="button" aria-label="Favorit">${favs.has(v.id) ? '★' : '☆'}</button>
         <div class="left"><b>${e.left ? dur(e.left) : '–'}</b>sol kvar</div>
       </li>`;
@@ -322,11 +347,165 @@ out tags geom;`;
     $('list').innerHTML = html || (onlyFav && !favs.size
       ? '<li class="status">Du har inga favoriter än. Tryck på ☆ vid en servering för att spara den.</li>'
       : '<li class="status">Inga serveringar matchar.</li>');
+    renderBest(now);
+    if (state.live) checkNotifications(now);
     const sunAlt = Shadow.sunPos(now, CITY.lat, CITY.lon).alt;
     setStatus(sunAlt <= 0
       ? `Solen är nere kl ${hhmm(now)}. Dra i tidsreglaget eller välj imorgon för att se när det blir sol.`
       : `${sunCount} av ${state.venues.length} serveringar har sol kl ${hhmm(now)}${state.live ? ' (nu)' : ''}.`);
-    if (state.selected) openSheet(state.selected, true);
+    if (state.selected && !document.querySelector('#repBox .report')) openSheet(state.selected, true);
+  }
+
+  function openTag(v, now) {
+    const o = Hours.isOpen(v.hours, now);
+    return o === true ? ' · <span class="open">Öppet</span>' : o === false ? ' · <span class="closed">Stängt</span>' : '';
+  }
+
+  // Sol-minuter i ett intervall där vädret också är okej (molntäcke under gränsen)
+  function clearMinutes(a, b) {
+    let ms = 0;
+    for (let t = a; t < b; t += 300000) { const w = wxAt(new Date(t)); if (!w || w.cloud < CLOUDY) ms += 300000; }
+    return ms;
+  }
+  // Bästa sammanhängande solfönster från "now" och framåt samma dag
+  function bestWindow(v, now) {
+    const t = now.getTime();
+    let best = null;
+    for (const [a0, b] of v._e.iv) {
+      if (b <= t) continue;
+      const a = Math.max(a0, t);
+      const clear = clearMinutes(a, b);
+      if (!best || clear > best.clear || (clear === best.clear && b - a > best.len)) best = { v, a, b, len: b - a, clear };
+    }
+    return best;
+  }
+  function renderBest(now) {
+    const box = $('best');
+    const pool = state.venues.filter((v) => !hidden.has(v.id) && (favs.size ? favs.has(v.id) : true));
+    let best = null;
+    for (const v of pool) { const w = bestWindow(v, now); if (w && (!best || w.clear > best.clear || (w.clear === best.clear && w.len > best.len))) best = w; }
+    if (!best) {
+      box.innerHTML = favs.size ? '☾ Ingen av dina favoriter får mer sol idag.' : '';
+      box.hidden = !favs.size;
+      return;
+    }
+    const cloudy = best.clear < best.len * 0.5;
+    box.hidden = false;
+    box.innerHTML = `<span class="best-icon">${cloudy ? '⛅' : '☀︎'}</span>
+      <span><small>${favs.size ? 'Bästa sol bland dina favoriter' : 'Bästa sol i stan'}${state.dayOffset ? ' den dagen' : ' idag'}</small>
+      <b>${esc(best.v.name)}</b> ${hhmm(new Date(best.a))}–${hhmm(new Date(best.b))} (${dur(best.len)}${cloudy ? ', men molnigt' : ''})</span>`;
+    box.onclick = () => openSheet(best.v);
+  }
+
+  // ---------- notiser ----------
+  async function showNote(title, body) {
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      if (reg) return reg.showNotification(title, { body, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: title });
+      new Notification(title, { body, icon: 'icons/icon-192.png' });
+    } catch (e) { /* */ }
+  }
+  function checkNotifications(now) {
+    if (!notify.size || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const t = now.getTime();
+    for (const v of state.venues) {
+      if (!notify.has(v.id) || !v._e) continue;
+      const nx = v._e.iv.find(([a]) => a > t && a - t <= NOTIFY_BEFORE);
+      if (!nx) continue;
+      const key = v.id + '@' + nx[0];
+      if (notified.has(key)) continue;
+      notified.add(key);
+      saveSet('suntime-notified', new Set([...notified].slice(-200)));
+      const w = wxAt(new Date(nx[0]));
+      showNote(`☀︎ Sol snart på ${v.name}`,
+        `Solen kommer ${hhmm(new Date(nx[0]))} och stannar till ${hhmm(new Date(nx[1]))}.` + (w && w.cloud >= CLOUDY ? ' Men det ser molnigt ut.' : ''));
+    }
+  }
+  async function toggleNotify(v) {
+    if (notify.has(v.id)) { notify.delete(v.id); saveSet('suntime-notify', notify); openSheet(v, true); return; }
+    if (typeof Notification === 'undefined') {
+      alert('Den här webbläsaren stödjer inte notiser. På iPhone måste appen först läggas till på hemskärmen.');
+      return;
+    }
+    const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    if (perm !== 'granted') { alert('Notiser är avstängda för Suntime i telefonens inställningar.'); return; }
+    notify.add(v.id); saveSet('suntime-notify', notify);
+    if (!favs.has(v.id)) { favs.add(v.id); try { localStorage.setItem('suntime-favs', JSON.stringify([...favs])); } catch (e) { /* */ } }
+    openSheet(v, true);
+    render();
+  }
+
+  // ---------- rapportera till OpenStreetMap ----------
+  async function sendOsmNote(lat, lon, text) {
+    const url = `https://api.openstreetmap.org/api/0.6/notes.json?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}&text=${encodeURIComponent(text)}`;
+    const res = await fetch(url, { method: 'POST' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    return j?.properties?.id;
+  }
+  function reportForm(target, { lat, lon, title, preset, osmId }) {
+    target.innerHTML = `
+      <div class="report">
+        <b>${esc(title)}</b>
+        <div class="report-opts">
+          ${preset.map((p, i) => `<label><input type="radio" name="rep" value="${i}" ${i === 0 ? 'checked' : ''}> ${esc(p)}</label>`).join('')}
+        </div>
+        <textarea id="repText" rows="2" maxlength="500" placeholder="Beskriv gärna (frivilligt), t.ex. namnet eller var bordet står"></textarea>
+        <div class="actions">
+          <button class="btn" id="repSend" type="button">Skicka</button>
+          <button class="btn secondary" id="repCancel" type="button">Avbryt</button>
+        </div>
+        <div class="note">Rapporten skickas som en öppen anteckning på OpenStreetMap, där frivilliga rättar kartan. Den syns publikt men innehåller inget om dig.</div>
+      </div>`;
+    target.querySelector('#repCancel').onclick = () => { target.innerHTML = ''; };
+    target.querySelector('#repSend').onclick = async (ev) => {
+      const btn = ev.currentTarget;
+      const choice = preset[+target.querySelector('input[name=rep]:checked').value];
+      const extra = target.querySelector('#repText').value.trim();
+      const text = `${choice}${osmId ? ` (https://www.openstreetmap.org/${osmId})` : ''}${extra ? '\n' + extra : ''}\n\nRapporterat via Suntime (uteservering / outdoor_seating)`;
+      btn.disabled = true; btn.textContent = 'Skickar…';
+      try {
+        const id = await sendOsmNote(lat, lon, text);
+        target.innerHTML = `<div class="report ok">Tack! Rapporten är skickad${id ? ` (<a href="https://www.openstreetmap.org/note/${id}" target="_blank" rel="noopener">se anteckningen</a>)` : ''}. Ändringen syns i appen när någon rättat kartan.</div>`;
+      } catch (e) {
+        target.innerHTML = `<div class="report">Det gick inte att skicka just nu. Du kan rapportera direkt på <a href="https://www.openstreetmap.org/note/new#map=19/${lat}/${lon}" target="_blank" rel="noopener">OpenStreetMap</a>.</div>`;
+      }
+    };
+  }
+  function startAddMode() {
+    state.addMode = true;
+    $('sheet').hidden = true;
+    map.getContainer().classList.add('adding');
+    setStatus('Tryck på kartan där den saknade uteserveringen ligger.');
+  }
+  function openAddSheet(latlng) {
+    state.addMode = false; state.selected = null;
+    map.getContainer().classList.remove('adding');
+    const s = $('sheet');
+    s.innerHTML = `<button class="close" id="sheetClose" aria-label="Stäng">✕</button><h2>Saknad uteservering</h2><div id="repBox"></div>`;
+    s.hidden = false;
+    $('sheetClose').onclick = () => { s.hidden = true; };
+    reportForm($('repBox'), { lat: latlng.lat, lon: latlng.lng, title: 'Vad saknas här?',
+      preset: ['Här finns en uteservering som saknas på kartan', 'Här finns ett ställe, men uteserveringen är inte markerad'] });
+    render();
+  }
+
+  // Väder per timme resten av dagen, med markering för timmar då stället har sol
+  function hourly(v, now) {
+    const d0 = new Date(now); d0.setMinutes(0, 0, 0);
+    const end = new Date(now); end.setHours(23, 59, 0, 0);
+    const cells = [];
+    for (let t = d0.getTime(); t <= end.getTime(); t += 3600000) {
+      const w = wxAt(new Date(t));
+      let lit = 0;
+      for (const [a, b] of v._e.iv) lit += Math.max(0, Math.min(b, t + 3600000) - Math.max(a, t));
+      const sunny = lit >= 15 * 60000;
+      const ico = w ? wxText(w).split(' ')[0] : '·';
+      cells.push(`<div class="hr${sunny ? ' lit' : ''}${sunny && w && w.cloud >= CLOUDY ? ' clouded' : ''}">
+        <span>${pad(new Date(t).getHours())}</span><i>${ico}</i><b>${w ? Math.round(w.temp) + '°' : '–'}</b>
+        <small>${w ? w.cloud + '%' : ''}</small><em>${sunny ? '☀︎ ' + Math.round(lit / 60000) + 'm' : ''}</em></div>`);
+    }
+    return `<div class="hours-title">Timme för timme <small>(☀︎ = solen når serveringen, % = moln)</small></div><div class="hourly">${cells.join('')}</div>`;
   }
 
   function openSheet(v, refresh) {
@@ -354,17 +533,26 @@ out tags geom;`;
       </div>
       <div class="timeline">${segs}<div class="now" style="left:${pct(now.getTime())}%"></div></div>
       <div class="ticks"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
-      ${v.hours ? `<div class="note"><b>Öppettider:</b> ${esc(v.hours)}</div>` : ''}
+      ${state.weather ? hourly(v, now) : ''}
+      ${v.hours ? `<div class="note"><b>Öppettider:</b> ${esc(v.hours)}${openTag(v, now)}</div>` : ''}
       <div class="actions">
         ${web ? `<a class="btn" href="${esc(web)}" target="_blank" rel="noopener">Hemsida / boka bord</a>` : ''}
         ${v.phone ? `<a class="btn secondary" href="tel:${esc(v.phone.replace(/\s/g, ''))}">Ring</a>` : ''}
         <a class="btn secondary" href="https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lon}" target="_blank" rel="noopener">Vägbeskrivning</a>
+        <button class="btn secondary${notify.has(v.id) ? ' active' : ''}" id="sheetNotify" type="button">${notify.has(v.id) ? '🔔 Påminnelse på' : '🔔 Påminn när solen kommer'}</button>
       </div>
       <div class="note">Skuggan räknas fram från omgivande hus i OpenStreetMap (höjder uppskattas när de saknas) och kan avvika från verkligheten.
       ${v.indoor ? 'Platsen låg inne i en byggnad på kartan, så vi antar att serveringen står vid närmaste fasad.' : ''}
-      ${web ? '' : 'Ingen hemsida finns registrerad.'}</div>`;
+      ${web ? '' : 'Ingen hemsida finns registrerad.'}</div>
+      <div class="actions small"><button class="link" id="sheetReport" type="button">Stämmer inte? Rapportera</button>
+        <button class="link" id="sheetHide" type="button">Dölj för mig</button></div>
+      <div id="repBox"></div>`;
     s.hidden = false;
     $('sheetFav').onclick = () => toggleFav(v.id);
+    $('sheetNotify').onclick = () => toggleNotify(v);
+    $('sheetReport').onclick = () => reportForm($('repBox'), { lat: v.lat, lon: v.lon, osmId: v.id, title: 'Vad är fel?',
+      preset: ['Uteserveringen finns inte (längre)', 'Stället har stängt för gott', 'Uteserveringen ligger på fel plats', 'Annat fel'] });
+    $('sheetHide').onclick = () => { hidden.add(v.id); saveSet('suntime-hidden', hidden); s.hidden = true; state.selected = null; render(); };
     $('sheetClose').onclick = () => { s.hidden = true; state.selected = null; };
     if (!refresh) map.panTo([v.lat, v.lon]);
   }
@@ -388,6 +576,11 @@ out tags geom;`;
     $('search').addEventListener('input', render);
     $('onlySun').addEventListener('change', render);
     $('onlyFav').addEventListener('change', render);
+    $('kind').addEventListener('change', render);
+    $('onlyOpen').addEventListener('change', render);
+    $('addMissing').addEventListener('click', startAddMode);
+    $('showHidden').addEventListener('click', () => { hidden.clear(); saveSet('suntime-hidden', hidden); render(); });
+    map.on('click', (e) => { if (state.addMode) openAddSheet(e.latlng); });
     $('sort').addEventListener('change', () => {
       if ($('sort').value === 'near' && !state.me && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((p) => {

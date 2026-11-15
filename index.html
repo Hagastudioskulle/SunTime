@@ -2,7 +2,7 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self' https://overpass-api.de https://overpass.kumi.systems https://overpass.private.coffee https://api.open-meteo.com https://tile.openstreetmap.org; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self' https://overpass-api.de https://overpass.kumi.systems https://overpass.private.coffee https://api.open-meteo.com https://api.openstreetmap.org https://tile.openstreetmap.org; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Suntime – sol på uteserveringar i Göteborg</title>
@@ -46,12 +46,25 @@
       <label class="chip toggle"><input type="checkbox" id="onlySun"> Sol</label>
       <label class="chip toggle"><input type="checkbox" id="onlyFav"> ★</label>
     </div>
+    <div class="controls">
+      <select id="kind" aria-label="Typ">
+        <option value="">Alla typer</option>
+        <option value="restaurant">Restauranger</option>
+        <option value="bar">Barer &amp; pubar</option>
+        <option value="cafe">Caféer</option>
+      </select>
+      <label class="chip toggle"><input type="checkbox" id="onlyOpen"> Öppet nu</label>
+    </div>
     <div id="status" class="status">Startar…</div>
+    <button id="best" class="best" type="button" hidden></button>
     <ul id="list" class="list"></ul>
     <footer class="foot">
       Data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-bidragsgivare ·
       Väder: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> ·
-      Skuggor är uppskattade från byggnadshöjder. <button id="refresh" class="link" type="button">Hämta om data</button>
+      Skuggor är uppskattade från byggnadshöjder.<br>
+      <button id="addMissing" class="link" type="button">Saknas en uteservering?</button> ·
+      <button id="showHidden" class="link" type="button">Visa dolda</button> ·
+      <button id="refresh" class="link" type="button">Hämta om data</button>
     </footer>
   </section>
 
@@ -65,6 +78,7 @@
   <script src="lib/leaflet.js"></script>
   <script src="lib/suncalc.js"></script>
   <script src="shadow.js"></script>
+  <script src="hours.js"></script>
   <script src="sunview.js"></script>
   <script src="app.js"></script>
 </body>

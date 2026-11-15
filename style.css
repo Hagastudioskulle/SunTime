@@ -120,3 +120,30 @@ input[type=search], select { font: inherit; padding: 7px 10px; border-radius: 10
 .star { background: none; border: 0; font-size: 22px; line-height: 1; color: var(--muted); cursor: pointer; padding: 4px; }
 .star.on { color: var(--sun); }
 .big-star { font-size: 24px; vertical-align: -2px; }
+
+/* ---------- filter, bästa tid, timvy, rapport ---------- */
+.open { color: #2e8b57; font-weight: 600; }
+.closed { color: #b0413e; font-weight: 600; }
+.best { display: flex; gap: 10px; align-items: center; text-align: left; margin: 0 12px 8px; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid #f3c26b; background: linear-gradient(135deg, var(--sun-soft), var(--card)); color: var(--text); font: inherit; cursor: pointer; }
+.best[hidden] { display: none; }
+.best small { display: block; color: var(--muted); font-size: 12px; }
+.best-icon { font-size: 24px; }
+.hours-title { margin-top: 14px; font-weight: 600; font-size: 14px; }
+.hours-title small { font-weight: 400; color: var(--muted); }
+.hourly { display: flex; gap: 6px; overflow-x: auto; padding: 6px 0 4px; -webkit-overflow-scrolling: touch; }
+.hr { flex: 0 0 52px; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--line); font-size: 12px; }
+.hr i { font-style: normal; font-size: 18px; }
+.hr b { font-size: 14px; }
+.hr small { color: var(--muted); }
+.hr em { font-style: normal; font-size: 11px; color: #a76a00; min-height: 14px; }
+.hr.lit { background: var(--sun-soft); border-color: #f3c26b; }
+.hr.lit.clouded { background: var(--bg); border-style: dashed; }
+.btn.active { border-color: var(--sun); background: var(--sun-soft); }
+.actions.small { font-size: 13px; color: var(--muted); gap: 14px; }
+.report { margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.report.ok { border-color: #8cc9a0; }
+.report-opts { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; font-size: 14px; }
+.report textarea { width: 100%; font: inherit; padding: 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+#map.adding { cursor: crosshair; outline: 3px solid var(--sun); outline-offset: -3px; }

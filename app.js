@@ -15,7 +15,7 @@
   })();
   const CITY = CITIES[cityId];
   const BBOX = CITY.bbox; // syd, väst, nord, öst
-  const DATA_KEY = 'suntime-data-v1-' + cityId;
+  const DATA_KEY = 'suntime-data-v2-' + cityId;
   const DATA_TTL = 7 * 864e5;
   const WX_KEY = 'suntime-wx-v1-' + cityId;
   const WX_TTL = 30 * 60e3;
@@ -47,6 +47,23 @@
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* fullt eller blockerat */ } },
+  };
+  // IndexedDB för husen (för stora för localStorage)
+  const idb = {
+    open() {
+      return new Promise((res, rej) => {
+        const r = indexedDB.open('suntime', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      });
+    },
+    async get(k) {
+      try { const db = await this.open(); return await new Promise((res) => { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); }
+      catch (e) { return null; }
+    },
+    async set(k, v) {
+      try { const db = await this.open(); db.transaction('kv', 'readwrite').objectStore('kv').put(v, k); } catch (e) { /* */ }
+    },
   };
   function distM(a, b) {
     const R = 6371000, r = Math.PI / 180;
@@ -90,7 +107,10 @@ out tags geom;`;
 
   async function loadVenues(force) {
     const cached = store.get(DATA_KEY);
-    if (!force && cached && Date.now() - cached.ts < DATA_TTL && cached.venues?.length) return cached.venues;
+    if (!force && cached && Date.now() - cached.ts < DATA_TTL && cached.venues?.length) {
+      idb.get('buildings-' + cityId).then((b) => b && SunView.setBuildings(b));
+      return cached.venues;
+    }
 
     setStatus('Hämtar uteserveringar och hus från OpenStreetMap… (kan ta en halv minut första gången)');
     const json = await overpass(buildQuery());
@@ -143,6 +163,9 @@ out tags geom;`;
       }
     }
     store.set(DATA_KEY, { ts: Date.now(), venues });
+    const slim = buildings.map((b) => ({ h: Math.round(b.h * 10) / 10, pts: b.pts.map(([a, o]) => [+a.toFixed(6), +o.toFixed(6)]) }));
+    SunView.setBuildings(slim);
+    idb.set('buildings-' + cityId, slim);
     return venues;
   }
 
@@ -234,6 +257,10 @@ out tags geom;`;
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
+    SunView.init(map, {
+      enabled: store.get('suntime-sunview') !== false,
+      onToggle: (on) => { store.set('suntime-sunview', on); render(); },
+    });
   }
   function pinIcon(status) {
     return L.divIcon({ className: '', html: `<div class="pin ${status}"></div>`, iconSize: [22, 22], iconAnchor: [11, 11] });
@@ -250,6 +277,8 @@ out tags geom;`;
     $('timeLabel').textContent = hhmm(now);
     $('nowBtn').classList.toggle('active', state.live);
     $('weather').textContent = wxText(wxAt(now)) || (state.weather ? '' : 'Väder laddas…');
+    const w0 = wxAt(now);
+    SunView.update(now, w0 ? w0.cloud : 0);
 
     const q = $('search').value.trim().toLowerCase();
     const onlySun = $('onlySun').checked;

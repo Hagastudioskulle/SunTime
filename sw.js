@@ -1,5 +1,5 @@
 // Suntime service worker: appen fungerar offline, kartbitar cachas när de visats.
-const SHELL = 'suntime-shell-v5';
+const SHELL = 'suntime-shell-v6';
 const TILES = 'suntime-tiles-v1';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'shadow.js', 'sunview.js', 'hours.js', 'manifest.webmanifest',
   'lib/leaflet.js', 'lib/leaflet.css', 'lib/suncalc.js', 'icons/icon-192.png', 'icons/icon-512.png'];
@@ -24,10 +24,10 @@ self.addEventListener('fetch', (e) => {
   }
   if (url.origin === location.origin) {
     // nätet först så att uppdateringar syns direkt, cache som reserv offline
-    e.respondWith(fetch(e.request).then((r) => {
+    e.respondWith(fetch(e.request, { cache: 'no-cache' }).then((r) => {
       if (r.ok) { const copy = r.clone(); caches.open(SHELL).then((c) => c.put(e.request, copy)); }
       return r;
-    }).catch(() => caches.match(e.request).then((r) => r || caches.match('index.html'))));
+    }).catch(() => caches.match(e.request, { ignoreSearch: true }).then((r) => r || caches.match('index.html'))));
   }
 });
 

@@ -2,11 +2,22 @@
 (function () {
   'use strict';
 
-  const CITY = { lat: 57.7072, lon: 11.9668 };
-  const BBOX = [57.66, 11.87, 57.75, 12.05]; // syd, väst, nord, öst
-  const DATA_KEY = 'suntime-data-v1';
+  const CITIES = {
+    goteborg: { name: 'Göteborg', lat: 57.7072, lon: 11.9668, zoom: 14, bbox: [57.66, 11.87, 57.75, 12.05] },
+    barcelona: { name: 'Barcelona', lat: 41.3870, lon: 2.1700, zoom: 15, bbox: [41.372, 2.150, 41.404, 2.192] },
+    malaga: { name: 'Málaga', lat: 36.7213, lon: -4.4214, zoom: 15, bbox: [36.708, -4.440, 36.730, -4.405] },
+  };
+  const cityId = (() => {
+    const q = new URLSearchParams(location.search).get('stad');
+    if (q && CITIES[q]) return q;
+    try { const s = localStorage.getItem('suntime-city'); if (s && CITIES[s]) return s; } catch (e) { /* */ }
+    return 'goteborg';
+  })();
+  const CITY = CITIES[cityId];
+  const BBOX = CITY.bbox; // syd, väst, nord, öst
+  const DATA_KEY = 'suntime-data-v1-' + cityId;
   const DATA_TTL = 7 * 864e5;
-  const WX_KEY = 'suntime-wx-v1';
+  const WX_KEY = 'suntime-wx-v1-' + cityId;
   const WX_TTL = 30 * 60e3;
   const CLOUDY = 75; // % molntäcke där vi räknar solen som borta
   const OVERPASS = [
@@ -140,7 +151,7 @@ out tags geom;`;
     const c = store.get(WX_KEY);
     if (c && Date.now() - c.ts < WX_TTL) return c.data;
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${CITY.lat}&longitude=${CITY.lon}` +
-      '&hourly=cloud_cover,temperature_2m,weather_code,precipitation&timezone=Europe%2FStockholm&forecast_days=2';
+      '&hourly=cloud_cover,temperature_2m,weather_code,precipitation&timezone=auto&forecast_days=2';
     const res = await fetch(url);
     if (!res.ok) throw new Error('Väder: HTTP ' + res.status);
     const j = await res.json();
@@ -218,7 +229,7 @@ out tags geom;`;
   // ---------- karta ----------
   let map;
   function initMap() {
-    map = L.map('map', { zoomControl: false, attributionControl: true }).setView([CITY.lat, CITY.lon], 14);
+    map = L.map('map', { zoomControl: false, attributionControl: true }).setView([CITY.lat, CITY.lon], CITY.zoom);
     L.control.zoom({ position: 'topright' }).addTo(map);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -392,6 +403,14 @@ out tags geom;`;
     }
   }
 
+  const citySel = $('city');
+  citySel.innerHTML = Object.entries(CITIES).map(([k, c]) => `<option value="${k}">${c.name}</option>`).join('');
+  citySel.value = cityId;
+  citySel.addEventListener('change', () => {
+    try { localStorage.setItem('suntime-city', citySel.value); } catch (e) { /* */ }
+    location.search = '?stad=' + citySel.value;
+  });
+  document.title = 'Suntime – sol på uteserveringar i ' + CITY.name;
   initMap();
   bind();
   initInstall();

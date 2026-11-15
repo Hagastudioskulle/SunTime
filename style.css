@@ -17,6 +17,7 @@ a { color: inherit; }
 .brand { font-weight: 700; font-size: 18px; white-space: nowrap; }
 .brand small { font-weight: 500; color: var(--muted); font-size: 13px; }
 .logo { color: var(--sun); }
+.city { font-size: 14px; font-weight: 600; padding: 3px 6px; margin-left: 4px; }
 .weather { font-size: 13px; color: var(--muted); text-align: right; }
 
 #map { flex: 1 1 45%; min-height: 160px; z-index: 1; }
